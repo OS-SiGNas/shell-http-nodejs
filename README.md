@@ -1,6 +1,6 @@
 # HTTP SHELL!
 
-This is a simple Http Shell written in typescript, which does not depend on external libraries such as express, fastify or koa; is a simple script that uses nodejs native http; it consists of only 4 GET endpoints, **/sh** to run commands, and **/file** to view files.
+This is a simple Http Shell written in typescript, which does not depend on external libraries such as express, fastify or koa; is a simple script that uses nodejs native http; it consists of only 4 GET endpoints, **/sh** to run commands, **/file** to view files, ***/info** for get system info and **/status** for 204 status code.
 
 ## /sh
 
