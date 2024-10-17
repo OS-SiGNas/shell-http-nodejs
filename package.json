@@ -1,0 +1,20 @@
+{
+  "name": "http-shell",
+  "description": "This is a simple http shell writed in typescript",
+  "version": "1.0.0",
+  "main": "dist/http-shell.min.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc",
+    "minify": "terser dist/http-shell.js -o dist/http-shell.min.js",
+    "build": "tsc && npm run minify && rm dist/http-shell.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.6",
+    "terser": "^5.36.0",
+    "typescript": "^5.6.3"
+  }
+}
