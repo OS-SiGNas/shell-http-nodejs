@@ -1,27 +1,30 @@
 import { readFile } from "node:fs/promises";
 import { exec } from "node:child_process";
-import { env, argv, exit } from "node:process";
+import { argv, exit } from "node:process";
 import { promisify } from "node:util";
 import { extname } from "node:path";
+import { platform, arch } from "node:os";
 import { IncomingMessage, Server, ServerResponse } from "node:http";
 
-type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & { req: IncomingMessage }) => void;
+type Controller = (
+  request: IncomingMessage,
+  response: ServerResponse<IncomingMessage> & { req: IncomingMessage },
+) => void;
 
 const ShellHttp = class {
   constructor() {
     const server = new Server();
+    const PORT = argv[2] !== undefined && !isNaN(+argv[2]) ? +argv[2] : 0;
+
     server.on("request", (request, response) => {
       this.#logger(request, response);
       if (request.method !== "GET") return response.writeHead(404).end();
+      if (request.url?.includes("/status")) return response.writeHead(204).end();
+      if (request.url?.includes("/info")) return this.#info(request, response);
       if (request.url?.includes("/sh")) return this.#shHandler(request, response);
       if (request.url?.includes("/file")) return this.#fileHandler(request, response);
       else return response.writeHead(404).end();
     });
-
-    const PORT = ((): number => {
-      const strPort = env.PORT ?? argv[2];
-      return strPort !== undefined && !isNaN(+strPort) ? +strPort : 0;
-    })();
 
     try {
       const { port: openPort } = server
@@ -39,6 +42,12 @@ const ShellHttp = class {
       const time = Date.now() - start;
       console.log(`[${method}] '\x1B[34m${url}\x1B[0m' - ${res.statusCode} - ${time}ms`);
     });
+  };
+
+  readonly #info: Controller = (_, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.write(`${platform()} ${arch()}`);
+    return res.end();
   };
 
   readonly #shHandler: Controller = async (request, response) => {
@@ -61,9 +70,7 @@ const ShellHttp = class {
     if (query.name === undefined) return response.writeHead(400).end();
     if (typeof query.name !== "string") return response.writeHead(400).end();
     try {
-      const contentType = {
-        "Content-Type": this.#getContentType(extname(query.name)),
-      };
+      const contentType = { "Content-Type": this.#getContentType(extname(query.name)) };
       response.writeHead(200, contentType).write(await readFile(query.name));
       return response.end();
     } catch (error) {
