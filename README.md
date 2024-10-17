@@ -22,6 +22,6 @@ this endpoint return 204 status code
 
 the script receives a 'port' argument
 
-`node shell-http.mjs 3000`
+`node shell-http.min.mjs 3000`
 
 if you don't specify a port, 0 will be used by default, this will use a random free port
