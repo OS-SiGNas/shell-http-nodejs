@@ -4,7 +4,7 @@ import { argv, exit } from "node:process";
 import { promisify } from "node:util";
 import { extname } from "node:path";
 import { platform, arch } from "node:os";
-import { IncomingMessage, Server, ServerResponse } from "node:http";
+import { Server, type IncomingMessage, type ServerResponse } from "node:http";
 
 type Controller = (
   request: IncomingMessage,
