@@ -1,10 +1,11 @@
+import { argv, exit, platform, arch } from "node:process";
 import { readFile } from "node:fs/promises";
 import { exec } from "node:child_process";
-import { argv, exit } from "node:process";
 import { promisify } from "node:util";
 import { extname } from "node:path";
-import { platform, arch } from "node:os";
-import { Server, type IncomingMessage, type ServerResponse } from "node:http";
+import { Server } from "node:http";
+
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 type Controller = (
   request: IncomingMessage,
@@ -46,7 +47,7 @@ const ShellHttp = class {
 
   readonly #info: Controller = (_, res) => {
     res.writeHead(200, { "Content-Type": "text/plain" });
-    res.write(`${platform()} ${arch()}`);
+    res.write(`${platform} ${arch}`);
     return res.end();
   };
 
