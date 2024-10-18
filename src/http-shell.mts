@@ -7,24 +7,26 @@ import { Server } from "node:http";
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-type Controller = (
-  request: IncomingMessage,
-  response: ServerResponse<IncomingMessage> & { req: IncomingMessage },
-) => void;
+type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & { req: IncomingMessage }) => void;
 
 const ShellHttp = class {
   constructor() {
     const server = new Server();
     const PORT = argv[2] !== undefined && !isNaN(+argv[2]) ? +argv[2] : 0;
 
-    server.on("request", (request, response) => {
-      this.#logger(request, response);
-      if (request.method !== "GET") return response.writeHead(404).end();
-      if (request.url?.includes("/status")) return response.writeHead(204).end();
-      if (request.url?.includes("/info")) return this.#info(request, response);
-      if (request.url?.includes("/sh")) return this.#shHandler(request, response);
-      if (request.url?.includes("/file")) return this.#fileHandler(request, response);
-      else return response.writeHead(404).end();
+    server.on("request", (req, res) => {
+      try {
+        this.#logger(req, res);
+        if (req.method !== "GET") return res.writeHead(404).end();
+        if (req.url?.includes("/status")) return res.writeHead(204).end();
+        if (req.url?.includes("/info")) return this.#info(req, res);
+        if (req.url?.includes("/sh")) return this.#shHandler(req, res);
+        if (req.url?.includes("/file")) return this.#fileHandler(req, res);
+        return res.writeHead(404).end();
+      } catch (error) {
+        res.writeHead(500, this.#getContentType("json")).write(JSON.stringify(error));
+        return res.end();
+      }
     });
 
     try {
@@ -46,51 +48,39 @@ const ShellHttp = class {
   };
 
   readonly #info: Controller = (_, res) => {
-    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.writeHead(200, this.#getContentType("plain"));
     res.write(`${platform} ${arch}`);
     return res.end();
   };
 
-  readonly #shHandler: Controller = async (request, response) => {
-    const query = this.#extractQueryParams(request.url as string) as unknown as { command: string };
-    if (query.command === undefined) return response.writeHead(400).end();
-    if (typeof query.command !== "string") return response.writeHead(400).end();
+  readonly #shHandler: Controller = async (req, res) => {
+    const query = this.#extractQueryParams(req.url as string) as unknown as { command: string };
+    if (query.command === undefined) return res.writeHead(400).end();
+    if (typeof query.command !== "string") return res.writeHead(400).end();
     try {
       const { stderr, stdout } = await promisify(exec)(query.command as string);
       if (stderr.length !== 0) throw new Error(stderr);
-      response.writeHead(200, { "Content-Type": "text/plain" }).write(stdout);
-      return response.end();
+      res.writeHead(200, this.#getContentType("plain")).write(stdout);
+      return res.end();
     } catch (error) {
-      response.writeHead(400, { "Content-Type": "application/json" }).write(JSON.stringify(error));
-      return response.end();
+      res.writeHead(400, this.#getContentType("json")).write(JSON.stringify(error));
+      return res.end();
     }
   };
 
-  readonly #fileHandler: Controller = async (request, response) => {
-    const query = this.#extractQueryParams(request.url as string) as unknown as { name: string };
-    if (query.name === undefined) return response.writeHead(400).end();
-    if (typeof query.name !== "string") return response.writeHead(400).end();
+  readonly #fileHandler: Controller = async (req, res) => {
+    const query = this.#extractQueryParams(req.url as string) as unknown as { name: string };
+    if (query.name === undefined) return res.writeHead(400).end();
+    if (typeof query.name !== "string") return res.writeHead(400).end();
     try {
-      const contentType = { "Content-Type": this.#getContentType(extname(query.name)) };
-      response.writeHead(200, contentType).write(await readFile(query.name));
-      return response.end();
+      const contentType = this.#getContentType(extname(query.name));
+      res.writeHead(200, contentType).write(await readFile(query.name));
+      return res.end();
     } catch (error) {
       console.trace(error);
-      response.writeHead(400).write(error);
-      return response.end();
+      res.writeHead(400).write(error);
+      return res.end();
     }
-  };
-
-  readonly #getContentType = (type: string): string => {
-    if (type === ".html") return "text/html";
-    if (type === ".png") return "image/png";
-    if (type === ".jpg") return "image/jpg";
-    if (type === ".mp3") return "audio/mp3";
-    if (type === ".ogg") return "audio/ogg";
-    if (type === ".mp4") return "video/mp4";
-    if (type === ".mkv") return "video/mkv";
-    if (type === ".json") return "application/json";
-    return "";
   };
 
   readonly #extractQueryParams = (endpoint: string) => {
@@ -99,6 +89,40 @@ const ShellHttp = class {
     const url = new URL("https://example.com" + endpoint);
     const searchParams = new URLSearchParams(url.search);
     return Object.fromEntries(searchParams.entries());
+  };
+
+  readonly #getContentType = (type: string): { "Content-Type": string } | undefined => {
+    let result: string | undefined;
+    if (!type.includes(".")) result = this.#contentTypes[type];
+    else result = this.#contentTypes[type.split(".").pop() as string];
+    return result !== undefined ? { "Content-Type": result } : undefined;
+  };
+
+  readonly #contentTypes: Record<string, `${string}${string}`> = {
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    zip: "application/zip",
+    pdf: "application/pdf",
+    json: "application/json",
+    xml: "application/xml",
+    plain: "text/plain",
+    txt: "text/plain",
+    html: "text/html",
+    css: "text/css",
+    png: "image/png",
+    jpg: "image/jpg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    svg: "image/svg+xml",
+    webp: "image/webp",
+    mp3: "audio/mp3",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    mp4: "video/mp4",
+    mkv: "video/mkv",
+    webm: "video/webm",
+    avi: "video/x-msvideo",
   };
 };
 
