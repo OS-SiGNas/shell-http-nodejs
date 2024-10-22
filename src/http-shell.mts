@@ -1,7 +1,7 @@
 import { argv, exit, platform, arch } from "node:process";
+import { promisify, styleText } from "node:util";
 import { readFile } from "node:fs/promises";
 import { exec } from "node:child_process";
-import { promisify, styleText } from "node:util";
 import { extname } from "node:path";
 import { Server } from "node:http";
 
@@ -12,8 +12,7 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 
 const ShellHttp = class {
 	public static readonly init = (): void => {
-		const server = new Server();
-		server.on("request", (req, res) => {
+		const callRequestHandler: Controller = (req, res) => {
 			this.#logger(req, res);
 			if (req.method !== "GET") return res.writeHead(404).end();
 			if (req.url?.includes("/status")) return res.writeHead(204).end();
@@ -21,18 +20,21 @@ const ShellHttp = class {
 			if (req.url?.includes("/sh")) return this.#shHandler(req, res);
 			if (req.url?.includes("/file")) return this.#fileHandler(req, res);
 			return res.writeHead(404).end();
-		});
+		};
 
-		const PORT = ((): number => {
+		const getPort = (): number => {
 			const port = argv[2];
 			return port !== undefined && !isNaN(+port) ? +port : 0;
-		})();
+		};
 
 		try {
-			const { port: openPort } = server.listen(PORT).address() as AddressInfo;
-			console.info(`Server: http://localhost:${openPort}`);
+			const { port } = new Server()
+				.on("request", callRequestHandler)
+				.listen(getPort(), () => console.info(`Server: http://localhost:${port}`))
+				.address() as AddressInfo;
 		} catch (error) {
 			console.trace(error);
+			console.info(styleText(["bold", "red"], "\n\n [+] leaving"));
 			exit(1);
 		}
 	};
