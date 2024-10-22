@@ -10,8 +10,10 @@ import type { AddressInfo } from "node:net";
 
 type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & { req: IncomingMessage }) => void;
 
-const ShellHttp = class {
+const HttpShell = class {
 	public static readonly init = (): void => {
+		const getPort = (p?: string): number => (p !== undefined && !isNaN(+p) ? +p : 0);
+
 		const callRequestHandler: Controller = (req, res) => {
 			this.#logger(req, res);
 			if (req.method !== "GET") return res.writeHead(404).end();
@@ -22,29 +24,23 @@ const ShellHttp = class {
 			return res.writeHead(404).end();
 		};
 
-		const getPort = (): number => {
-			const port = argv[2];
-			return port !== undefined && !isNaN(+port) ? +port : 0;
-		};
-
 		try {
 			const { port } = new Server()
 				.on("request", callRequestHandler)
-				.listen(getPort(), () => console.info(`Server: http://localhost:${port}`))
+				.listen(getPort(argv[2]), () => console.info(`Server: http://127.0.0.1:${port}`))
 				.address() as AddressInfo;
 		} catch (error) {
 			console.trace(error);
-			console.info(styleText(["bold", "red"], "\n\n [+] leaving"));
-			exit(1);
+			this.leaving();
 		}
 	};
 
 	static readonly #logger: Controller = ({ method, url }, res) => {
 		const start = Date.now();
+		const strMethod = styleText(["bgWhite", "bold", "black"], `[${method}]`);
+		const strUrl = styleText(["blue", "bold"], `${url}`);
 		res.on("finish", () => {
 			const time = Date.now() - start;
-			const strMethod = styleText(["bgWhite", "bold", "black"], `[${method}]`);
-			const strUrl = styleText(["blue", "bold"], `${url}`);
 			console.log(`${strMethod} - ${strUrl} - ${res.statusCode} - ${time}ms`);
 		});
 	};
@@ -124,6 +120,14 @@ const ShellHttp = class {
 		webm: "video/webm",
 		avi: "video/x-msvideo",
 	};
+
+	public static readonly leaving = (): void => {
+		console.info(styleText(["bold", "red"], "\n\n [+] leaving"));
+		exit(1);
+	};
 };
 
-void ShellHttp.init();
+process.on("SIGINT", HttpShell.leaving);
+process.on("SIGTERM", HttpShell.leaving);
+
+void HttpShell.init();
