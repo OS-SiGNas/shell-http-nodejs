@@ -27,15 +27,15 @@ const HttpShell = class {
 		try {
 			const { port } = new Server()
 				.on("request", callRequestHandler)
-				.listen(PORT, () => console.info(`Server: http://127.0.0.1:${port}`))
+				.listen(PORT, () => console.info(styleText(["bold", "green"], `\n\n[*] Server: http://127.0.0.1:${port}`)))
 				.address() as AddressInfo;
+
+			process.on("SIGINT", this.#leaving);
+			process.on("SIGTERM", this.#leaving);
 		} catch (error) {
 			console.trace(error);
 			this.#leaving();
 		}
-
-		process.on("SIGINT", this.#leaving);
-		process.on("SIGTERM", this.#leaving);
 	};
 
 	static readonly #logger: Controller = ({ method, url }, res) => {
@@ -125,7 +125,7 @@ const HttpShell = class {
 	};
 
 	static readonly #leaving = (): void => {
-		console.info(styleText(["bold", "red"], "\n\n [+] Leaving"));
+		console.info(styleText(["bold", "red"], "\n\n[*] Stopping server."));
 		exit(1);
 	};
 };
