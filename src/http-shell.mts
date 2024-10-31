@@ -15,10 +15,10 @@ const HttpShell = class {
 		const callRequestHandler: Controller = (req, res) => {
 			this.#logger(req, res);
 			if (req.method !== "GET") return res.writeHead(404).end();
-			if (req.url?.includes("/status")) return res.writeHead(204).end();
-			if (req.url?.includes("/info")) return this.#info(req, res);
 			if (req.url?.includes("/sh")) return this.#shHandler(req, res);
 			if (req.url?.includes("/file")) return this.#fileHandler(req, res);
+			if (req.url?.includes("/info")) return this.#info(req, res);
+			if (req.url?.includes("/status")) return res.writeHead(204).end();
 			return res.writeHead(404).end();
 		};
 
@@ -27,7 +27,7 @@ const HttpShell = class {
 		try {
 			const { port } = new Server()
 				.on("request", callRequestHandler)
-				.listen(PORT, () => console.info(styleText(["bold", "green"], `\n\n[*] Server: http://127.0.0.1:${port}`)))
+				.listen(PORT, () => console.info(styleText(["bold", "green"], `\n[*] Server: http://127.0.0.1:${port}`)))
 				.address() as AddressInfo;
 
 			process.on("SIGINT", this.#leaving);
@@ -121,7 +121,7 @@ const HttpShell = class {
 	};
 
 	static readonly #leaving = (): void => {
-		console.info(styleText(["bold", "red"], "\n\n[*] Stopping server."));
+		console.info(styleText(["bold", "red"], "\n\n[!] Stopping server."));
 		exit(1);
 	};
 };
