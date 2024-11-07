@@ -10,7 +10,7 @@ import type { AddressInfo } from "node:net";
 
 type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & { req: IncomingMessage }) => void;
 
-const HttpShell = class {
+(class {
 	public static readonly init = (): void => {
 		const callRequestHandler: Controller = (req, res) => {
 			this.#logger(req, res);
@@ -124,6 +124,4 @@ const HttpShell = class {
 		console.info(styleText(["bold", "red"], "\n\n[!] Stopping server."));
 		exit(1);
 	};
-};
-
-void HttpShell.init();
+}).init();
