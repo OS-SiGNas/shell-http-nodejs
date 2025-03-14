@@ -3,16 +3,15 @@ import { promisify, styleText } from "node:util";
 import { readFile } from "node:fs/promises";
 import { exec } from "node:child_process";
 import { extname } from "node:path";
-import { Server } from "node:http";
+import { Server, RequestListener } from "node:http";
 
-import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & { req: IncomingMessage }) => void;
-
-(class {
-	public static readonly init = (): void => {
-		const callRequestHandler: Controller = (req, res) => {
+void new (class {
+	readonly #server: Server = new Server();
+	readonly #port = ((p?: string): number => (p !== undefined && !isNaN(+p) ? +p : 0))(argv[2]);
+	constructor() {
+		const callRequestHandler: RequestListener = (req, res) => {
 			this.#logger(req, res);
 			if (req.method !== "GET") return res.writeHead(404).end();
 			if (req.url?.includes("/sh")) return this.#shHandler(req, res);
@@ -22,23 +21,21 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 			return res.writeHead(404).end();
 		};
 
-		const PORT = ((p?: string): number => (p !== undefined && !isNaN(+p) ? +p : 0))(argv[2]);
-
 		try {
-			const { port } = new Server()
+			const { port } = this.#server
 				.on("request", callRequestHandler)
-				.listen(PORT, () => console.info(styleText(["bold", "green"], `\n[*] Server: http://127.0.0.1:${port}`)))
+				.listen(this.#port, () => console.info(styleText(["bold", "green"], `\n[*] Server: http://127.0.0.1:${port}`)))
 				.address() as AddressInfo;
 
-			process.on("SIGINT", this.#leaving);
-			process.on("SIGTERM", this.#leaving);
+			process.on("SIGINT", this.#shutDown);
+			process.on("SIGTERM", this.#shutDown);
 		} catch (error) {
 			console.trace(error);
-			this.#leaving();
+			this.#shutDown();
 		}
-	};
+	}
 
-	static readonly #logger: Controller = ({ method, url }, res) => {
+	readonly #logger: RequestListener = ({ method, url }, res) => {
 		const start = Date.now();
 		const strMethod = styleText(["bgWhite", "bold", "black"], `[${method}]`);
 		const strUrl = styleText(["blue", "bold"], `${url}`);
@@ -48,12 +45,12 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 		});
 	};
 
-	static readonly #info: Controller = (_, res) => {
+	readonly #info: RequestListener = (_, res) => {
 		res.writeHead(200, this.#getContentType("plain")).write(`${platform} ${arch}`);
 		return res.end();
 	};
 
-	static readonly #shHandler: Controller = async (req, res) => {
+	readonly #shHandler: RequestListener = async (req, res) => {
 		const { command } = this.#extractQueryParams<{ command: string }>(req.url as string);
 		if (command === undefined) return res.writeHead(400).end();
 		try {
@@ -65,7 +62,7 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 		return res.end();
 	};
 
-	static readonly #fileHandler: Controller = async (req, res) => {
+	readonly #fileHandler: RequestListener = async (req, res) => {
 		const { name } = this.#extractQueryParams<{ name: string }>(req.url as string);
 		if (name === undefined) return res.writeHead(400).end();
 		try {
@@ -78,7 +75,7 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 		return res.end();
 	};
 
-	static readonly #extractQueryParams = <T extends object>(endpoint: string): T => {
+	readonly #extractQueryParams = <T extends object>(endpoint: string): T => {
 		const [_, queryString] = endpoint.split("?");
 		if (queryString === undefined) return { query: {} } as T;
 		const url = new URL("https://example.com" + endpoint);
@@ -86,17 +83,14 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 		return Object.fromEntries(searchParams.entries()) as T;
 	};
 
-	static readonly #getContentType = (type: string): { "Content-Type": string } | undefined => {
+	readonly #getContentType = (type: string): { "Content-Type": string } | undefined => {
 		let result: string | undefined;
 		if (!type.includes(".")) result = this.#contentTypes[type];
 		else result = this.#contentTypes[type.split(".").pop() as string];
 		return result !== undefined ? { "Content-Type": result } : undefined;
 	};
 
-	static readonly #contentTypes: Record<string, `${string}/${string}`> = {
-		pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-		docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-		xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	readonly #contentTypes: Record<string, `${string}/${string}`> = {
 		zip: "application/zip",
 		pdf: "application/pdf",
 		json: "application/json",
@@ -120,8 +114,9 @@ type Controller = (req: IncomingMessage, res: ServerResponse<IncomingMessage> & 
 		avi: "video/x-msvideo",
 	};
 
-	static readonly #leaving = (): void => {
+	readonly #shutDown = (): void => {
 		console.info(styleText(["bold", "red"], "\n\n[!] Stopping server."));
+		this.#server.close();
 		exit(1);
 	};
-}).init();
+})();
