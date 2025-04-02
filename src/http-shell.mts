@@ -7,7 +7,7 @@ import { Server, RequestListener } from "node:http";
 
 import type { AddressInfo } from "node:net";
 
-void new (class {
+new (class {
 	readonly #server: Server = new Server();
 	readonly #port = ((p?: string): number => (p !== undefined && !isNaN(+p) ? +p : 0))(argv[2]);
 	constructor() {

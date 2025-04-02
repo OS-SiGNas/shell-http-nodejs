@@ -8,10 +8,10 @@
 	"license": "ISC",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"tsc": "tsc",
 		"dev": "node --watch --experimental-transform-types src/http-shell.mts",
 		"minify": "terser dist/http-shell.mjs -c -m -o dist/http-shell.min.mjs",
-		"build": "tsc && npm run minify && rm dist/http-shell.mjs"
+		"build": "tsc && node --run minify && rm dist/http-shell.mjs",
+		"tsc": "tsc"
 	},
 	"devDependencies": {
 		"@types/node": "^22.7.6",
